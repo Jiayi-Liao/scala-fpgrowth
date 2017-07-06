@@ -9,7 +9,7 @@ import scala.io.Source
 object FPGrowth extends App{
 
   val is = ClassLoader.getSystemResourceAsStream("data1.csv")
-  val lines = Source.fromInputStream(is).getLines.toArray
+  var lines = Source.fromInputStream(is).getLines.toArray
   for (line <- lines) println(line)
 
   // support
@@ -23,10 +23,20 @@ object FPGrowth extends App{
   })
 
   // remove item whose count < support
-  val filted_itemCount = itemCount.filter(v => v._2 > support)
+  val filted_itemCount = itemCount.filter(v => v._2 > support).toSeq.sortBy(v => -v._2)
+  // ordered items
+  val filted_items = filted_itemCount.map(v => v._1)
+  lines = lines.map(line => line.split(",").filter(item => filted_items.contains(item)).mkString(","))
 
   // FPgrowth
-  val node = buildTree(lines.toArray)
+  val node = buildTree(lines)
+  // start mining....
+  filted_items.reverse.foreach(item => {
+    
+  })
+
+
+
   println("Finish!")
 
 
@@ -44,7 +54,8 @@ object FPGrowth extends App{
       val (rChildNode,rItems) = if (repeat.length > 0) {
         (node.child.find(_.name.equals(repeat.head)).get.addCount(), items.filter(!_.equals(repeat.head)))
       } else {
-        (FPNode(items.head, 1, Array()), items.tail)
+        val max_frequent_item = filted_items.intersect(items).head
+        (FPNode(max_frequent_item, 1, Array()), items.filter(!_.equals(max_frequent_item)))
       }
       val childNode = recursiveInsert(rChildNode, rItems)
       if (node.child.exists(_.name.equals(childNode.name))){
