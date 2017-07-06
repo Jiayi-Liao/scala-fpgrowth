@@ -32,13 +32,45 @@ object FPGrowth extends App{
   val node = buildTree(lines)
   // start mining....
   filted_items.reverse.foreach(item => {
-    
+    // mining one by one
+    var tmpNode = node
+    val frequent_path = Array[Array[String]]()
+    while(!isMaxFrequent(tmpNode)){
+      val cut_nodes = cutTree(item, tmpNode)
+      val cut_lines = flatNodes(cut_nodes)
+      tmpNode = buildTree(cut_lines.map(_.mkString(",")))
+    }
+
   })
+
+  def cutTree(item: String, node: FPNode): Array[Array[FPNode]] = {
+    val paths = mutable.ArrayBuffer.empty[Array[FPNode]]
+    if (node.name.equals(item)) {
+      Array(Array(node))
+    } else {
+      node.child.foreach(nd => {
+        val result = cutTree(item, nd)
+        if (result.nonEmpty) {
+          result.foreach(path => {
+            val append_path = path ++ Array(node)
+            paths += append_path
+          })
+        }
+      })
+      paths.toArray
+    }
+  }
 
 
 
   println("Finish!")
 
+  def isMaxFrequent(node: FPNode) : Boolean = {
+    var n = node
+    while(n.child.length == 1)
+      n = n.child(0)
+    if(n.child.length > 0) false else true
+  }
 
   def buildTree(lines: Array[String]): FPNode = {
     val root: FPNode = lines.foldLeft[FPNode](FPNode("root", 0, Array()))((node, line)=>{
