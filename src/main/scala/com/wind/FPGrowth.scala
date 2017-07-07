@@ -23,7 +23,7 @@ object FPGrowth extends App{
   })
 
   // remove item whose count < support
-  val filted_itemCount = itemCount.filter(v => v._2 > support).toSeq.sortBy(v => -v._2)
+  val filted_itemCount = itemCount.filter(v => v._2 >= support).toSeq.sortBy(v => -v._2)
   // ordered items
   val filted_items = filted_itemCount.map(v => v._1)
   lines = lines.map(line => line.split(",").filter(item => filted_items.contains(item)).mkString(","))
@@ -35,13 +35,22 @@ object FPGrowth extends App{
     // mining one by one
     var tmpNode = node
     val frequent_path = Array[Array[String]]()
-    while(!isMaxFrequent(tmpNode)){
-      val cut_nodes = cutTree(item, tmpNode)
-      val cut_lines = flatNodes(cut_nodes)
-      tmpNode = buildTree(cut_lines.map(_.mkString(",")))
-    }
-
+    val cut_nodes = cutTree(item, tmpNode).filter(nodes => !nodes.exists(_.cnt < support))
+    val cut_lines = cut_nodes.map(line => line.map(_.name))
+    println(s"$item path ======>")
+    cut_lines.foreach(line => println(line.mkString(",")))
+    println("\n")
   })
+
+  def flatNodes(nodeLines: Array[Array[FPNode]]) : Array[Array[String]] = {
+    val append = mutable.ArrayBuffer.empty[Array[String]]
+    nodeLines.foreach(path => {
+      val count = path(path.length - 1).cnt
+      val appendPath = path.map(_.name)
+      if (count > 0) (1 to count).foreach(append += appendPath)
+    })
+    append.toArray
+  }
 
   def cutTree(item: String, node: FPNode): Array[Array[FPNode]] = {
     val paths = mutable.ArrayBuffer.empty[Array[FPNode]]
@@ -52,7 +61,7 @@ object FPGrowth extends App{
         val result = cutTree(item, nd)
         if (result.nonEmpty) {
           result.foreach(path => {
-            val append_path = path ++ Array(node)
+            val append_path = if(node.name.equals("root")) path else path ++ Array(node)
             paths += append_path
           })
         }
