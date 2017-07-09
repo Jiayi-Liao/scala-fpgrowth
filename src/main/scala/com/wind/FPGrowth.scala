@@ -31,33 +31,61 @@ object FPGrowth extends App{
   // FPgrowth build first tree
   val node = buildTree(lines)
   // start mining....
-  filted_items.reverse.foreach(item => {
+
+  val itemPathPairs = filted_items.reverse.map(item => {
     // mining one by one
-    var tmpNode = node
-    val cut_nodes = cutTree(item, tmpNode).filter(nodes => !nodes.exists(_.cnt < support))
-    val cut_lines = cut_nodes.map(line => line.map(_.name))
-    println(s"$item path ======>")
-    cut_lines.foreach(line => println(line.mkString(",")))
-    println("\n")
+    val frequentPath = fpgrowthMining(node, item)
+    (item -> frequentPath)
   })
+  itemPathPairs foreach { fp =>
+    println("---------------------" + fp._1)
+    fp._2.foreach(path => println(path.mkString(",")))
+    println("---------------------")
+  }
+
+  def fpgrowthMining(node: FPNode, item: String): Array[Array[String]] = {
+    val frequentItems = mutable.ArrayBuffer.empty[Array[String]]
+    var tmpNode = cutTreeUnderSupport(item, node)
+    while (!tmpNode.isMaxFrequent) {
+      val itemsCnt = getItemsCount(tmpNode)
+      val cutItem = itemsCnt.toSeq.sortBy(v => v._2).head._1
+      tmpNode = cutTreeUnderSupport(cutItem, node)
+      frequentItems.append(Array(cutItem))
+    }
+    frequentItems.append(tmpNode.maxFrequentPath)
+    frequentItems.toArray
+  }
+
+  def cutTreeUnderSupport(item: String, node: FPNode): FPNode = {
+    var n = cutTree(item, node)
+    var itemsCnt = getItemsCount(n)
+    while (itemsCnt.values.toSeq.exists(_ < support)) {
+      val unsupportItem = itemsCnt.filter(m => m._2 < support).keys.head
+      n = cutTree(unsupportItem, n, false)
+      itemsCnt = getItemsCount(n)
+    }
+    n
+    // choose
+  }
 
   // choose an item to do mining
-  def cutTree(item: String, node: FPNode): Array[Array[FPNode]] = {
-    val paths = mutable.ArrayBuffer.empty[Array[FPNode]]
-    if (node.name.equals(item)) {
-      Array(Array(node))
-    } else {
-      node.child.foreach(nd => {
-        val result = cutTree(item, nd)
-        if (result.nonEmpty) {
-          result.foreach(path => {
-            val append_path = if(node.name.equals("root")) path else path ++ Array(node)
-            paths += append_path
-          })
-        }
-      })
-      paths.toArray
-    }
+  def cutTree(item: String, node: FPNode, remove: Boolean = true): FPNode = {
+    val children = node.child.map(child => {
+      if (child.name equals item) FPNode("target", 0, Array())
+      else if (child.child.length == 0 && remove) FPNode("remove", 0, Array())
+      else if (child.child.length == 0 && !remove) child
+      else cutTree(item, child, remove)
+    })
+    if (children.filter(_.name equals "remove").length == children.length && remove) FPNode("remove", 0, Array())
+    else FPNode(node.name, node.cnt, children.filter(node => !Seq("remove","target").contains(node.name)))
+  }
+
+  def getItemsCount(node: FPNode): Map[String, Int] = {
+    val itemCnt = if (node.name equals "root") Map[String, Int]() else Map(node.name -> node.cnt)
+    val childCnt = (node.child.map(n => {
+      getItemsCount(n)
+    }) :+ itemCnt).reduce( (a,b) => a ++ b.map{ case (k,v) => k -> (v + a.getOrElse(k, 0))})
+    childCnt
   }
 
   println("Finish!")
@@ -98,7 +126,26 @@ case class FPNode(name: String, cnt: Int, child: Array[FPNode]) {
   def addCount() : FPNode = {
     FPNode(name, cnt+1, child)
   }
+
   def addChild(node: FPNode) : FPNode = {
     FPNode(name, cnt, child :+ node)
   }
+
+  def isMaxFrequent(): Boolean = {
+    var tmpNode = this
+    while (tmpNode.child.length == 1) tmpNode = tmpNode.child(0)
+    if (tmpNode.child.length == 0 ) true else false
+  }
+
+  def maxFrequentPath(): Array[String] = {
+    val a = mutable.ArrayBuffer.empty[String]
+    var tmpNode = this
+    while (tmpNode.child.length == 1) {
+      tmpNode = tmpNode.child(0)
+      a.append(tmpNode.name)
+    }
+    a.toArray
+
+  }
+
 }
