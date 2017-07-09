@@ -28,13 +28,12 @@ object FPGrowth extends App{
   val filted_items = filted_itemCount.map(v => v._1)
   lines = lines.map(line => line.split(",").filter(item => filted_items.contains(item)).mkString(","))
 
-  // FPgrowth
+  // FPgrowth build first tree
   val node = buildTree(lines)
   // start mining....
   filted_items.reverse.foreach(item => {
     // mining one by one
     var tmpNode = node
-    val frequent_path = Array[Array[String]]()
     val cut_nodes = cutTree(item, tmpNode).filter(nodes => !nodes.exists(_.cnt < support))
     val cut_lines = cut_nodes.map(line => line.map(_.name))
     println(s"$item path ======>")
@@ -42,16 +41,7 @@ object FPGrowth extends App{
     println("\n")
   })
 
-  def flatNodes(nodeLines: Array[Array[FPNode]]) : Array[Array[String]] = {
-    val append = mutable.ArrayBuffer.empty[Array[String]]
-    nodeLines.foreach(path => {
-      val count = path(path.length - 1).cnt
-      val appendPath = path.map(_.name)
-      if (count > 0) (1 to count).foreach(append += appendPath)
-    })
-    append.toArray
-  }
-
+  // choose an item to do mining
   def cutTree(item: String, node: FPNode): Array[Array[FPNode]] = {
     val paths = mutable.ArrayBuffer.empty[Array[FPNode]]
     if (node.name.equals(item)) {
@@ -70,16 +60,7 @@ object FPGrowth extends App{
     }
   }
 
-
-
   println("Finish!")
-
-  def isMaxFrequent(node: FPNode) : Boolean = {
-    var n = node
-    while(n.child.length == 1)
-      n = n.child(0)
-    if(n.child.length > 0) false else true
-  }
 
   def buildTree(lines: Array[String]): FPNode = {
     val root: FPNode = lines.foldLeft[FPNode](FPNode("root", 0, Array()))((node, line)=>{
